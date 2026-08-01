@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Breakout – GameHub</title>
+  <meta name="description" content="Play Breakout online free. Break all the bricks!" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧱</text></svg>" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    canvas {
+      background: #12121f;
+      border: 3px solid #2a2a45;
+      border-radius: 12px;
+      display: block;
+      max-width: 100%;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+    <a href="../index.html" class="back-link">← Back to GameHub</a>
+    <h1>🧱 Breakout</h1>
+    <p class="game-info">Move paddle with mouse / touch / arrow keys</p>
+
+    <div class="score-bar">
+      <div class="score-item">Score: <span id="score">0</span></div>
+      <div class="score-item">Lives: <span id="lives">3</span></div>
+      <div class="score-item">Best: <span id="best">0</span></div>
+    </div>
+
+    <div class="board-wrap">
+      <canvas id="canvas" width="480" height="360"></canvas>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="startBtn">Start / Restart</button>
+      <button class="btn btn-secondary" id="soundBtn">🔊 Sound</button>
+    </div>
+
+    **Summary:**
+❓ How to play
+      <div class="how-to-body">
+        <ul>
+          <li>Move the paddle left/right (mouse, touch, or ← → keys)</li>
+          <li>Bounce the ball to break all bricks</li>
+          <li>Don't let the ball fall below the paddle</li>
+          <li>Clear all bricks to win the level</li>
+        </ul>
+      </div>
+  </div>
+
+  <script src="../js/sounds.js"></script>
+  <script src="../js/leaderboard.js"></script>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const bestEl = document.getElementById('best');
+    const startBtn = document.getElementById('startBtn');
+    const soundBtn = document.getElementById('soundBtn');
+
+    let best = Number(localStorage.getItem('breakoutBest') || 0);
+    bestEl.textContent = best;
+    soundBtn.textContent = GameSounds.isEnabled() ? '🔊 Sound' : '🔇 Muted';
+
+    const W = canvas.width, H = canvas.height;
+    let paddle, ball, bricks, score, lives, running, animId;
+
+    function initBricks() {
+      const rows = 5, cols = 10;
+      const bw = 42, bh = 16, pad = 4, offsetTop = 40, offsetLeft = 18;
+      bricks = [];
+      const colors = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6'];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          bricks.push({
+            x: offsetLeft + c * (bw + pad),
+            y: offsetTop + r * (bh + pad),
+            w: bw, h: bh,
+            alive: true,
+            color: colors[r]
+          });
+        }
+      }
+    }
+
+    function init() {
+      paddle = { w: 80, h: 12, x: W / 2 - 40, y: H - 30 };
+      ball = { x: W / 2, y: H - 50, r: 7, dx: 3.2, dy: -3.2 };
+      score = 0; lives = 3;
+      scoreEl.textContent = 0;
+      livesEl.textContent = 3;
+      initBricks();
+      running = true;
+      if (animId) cancelAnimationFrame(animId);
+      loop();
+    }
+
+    function loop() {
+      if (!running) return;
+      update();
+      draw();
+      animId = requestAnimationFrame(loop);
+    }
+
+    function update() {
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+
+      if (ball.x + ball.r > W || ball.x - ball.r < 0) {
+        ball.dx = -ball.dx;
+        GameSounds.hit();
+      }
+      if (ball.y - ball.r < 0) {
+        ball.dy = -ball.dy;
+        GameSounds.hit();
+      }
+
+      if (ball.y + ball.r > paddle.y &&
+          ball.x > paddle.x && ball.x < paddle.x + paddle.w &&
+          ball.dy > 0) {
+        ball.dy = -ball.dy;
+        const hit = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+        ball.dx = hit * 4;
+        GameSounds.click();
+      }
+
+      if (ball.y + ball.r > H) {
+        lives--;
+        livesEl.textContent = lives;
+        GameSounds.fail();
+        if (lives <= 0) {
+          running = false;
+          if (score > best) {
+            best = score;
+            localStorage.setItem('breakoutBest', best);
+            bestEl.textContent = best;
+          }
+          Leaderboard.submit('breakout', score, true);
+          return;
+        }
+        ball.x = W / 2; ball.y = H - 50;
+        ball.dx = 3.2 * (Math.random() > 0.5 ? 1 : -1);
+        ball.dy = -3.2;
+      }
+
+      bricks.forEach(b => {
+        if (!b.alive) return;
+        if (ball.x > b.x && ball.x < b.x + b.w &&
+            ball.y > b.y && ball.y < b.y + b.h) {
+          b.alive = false;
+          ball.dy = -ball.dy;
+          score += 10;
+          scoreEl.textContent = score;
+          GameSounds.eat();
+        }
+      });
+
+      if (bricks.every(b => !b.alive)) {
+        running = false;
+        GameSounds.win();
+        if (score > best) {
+          best = score;
+          localStorage.setItem('breakoutBest', best);
+          bestEl.textContent = best;
+        }
+        Leaderboard.submit('breakout', score, true);
+      }
+    }
+
+    function draw() {
+      ctx.fillStyle = '#12121f';
+      ctx.fillRect(0, 0, W, H);
+
+      bricks.forEach(b => {
+        if (!b.alive) return;
+        ctx.fillStyle = b.color;
+        ctx.beginPath();
+        ctx.roundRect(b.x, b.y, b.w, b.h, 3);
+        ctx.fill();
+      });
+
+      ctx.fillStyle = '#a78bfa';
+      ctx.beginPath();
+      ctx.roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 6);
+      ctx.fill();
+
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (!running) {
+        ctx.fillStyle = 'rgba(11,11,20,0.75)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 26px Poppins, sans-serif';
+        ctx.textAlign = 'center';
+        const msg = bricks.every(b => !b.alive) ? 'You Win! 🎉' : 'Game Over';
+        ctx.fillText(msg, W / 2, H / 2 - 10);
+        ctx.font = '14px Poppins, sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('Score: ' + score + '  ·  Press Start to play again', W / 2, H / 2 + 24);
+      }
+    }
+
+    function movePaddle(x) {
+      paddle.x = Math.max(0, Math.min(W - paddle.w, x - paddle.w / 2));
+    }
+
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const scale = canvas.width / rect.width;
+      movePaddle((e.clientX - rect.left) * scale);
+    });
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const scale = canvas.width / rect.width;
+      movePaddle((e.touches[0].clientX - rect.left) * scale);
+    }, { passive: false });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft') paddle.x = Math.max(0, paddle.x - 24);
+      if (e.key === 'ArrowRight') paddle.x = Math.min(W - paddle.w, paddle.x + 24);
+    });
+
+    startBtn.addEventListener('click', init);
+    soundBtn.addEventListener('click', () => {
+      const on = GameSounds.toggle();
+      soundBtn.textContent = on ? '🔊 Sound' : '🔇 Muted';
+    });
+
+    draw();
+  </script>
+</body>
+</html>
