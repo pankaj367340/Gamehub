@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic-Tac-Toe – GameHub</title>
+  <meta name="description" content="Play Tic-Tac-Toe online free with a friend." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❌</text></svg>" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    .ttt-board {
+      display: grid;
+      grid-template-columns: repeat(3, 90px);
+      grid-template-rows: repeat(3, 90px);
+      gap: 8px;
+      background: #2d2d4a;
+      padding: 8px;
+      border-radius: 12px;
+    }
+    .ttt-cell {
+      background: var(--card);
+      border: none;
+      border-radius: 8px;
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s;
+      font-family: inherit;
+    }
+    .ttt-cell:hover:not(:disabled) {
+      background: #252540;
+    }
+    .ttt-cell:disabled {
+      cursor: default;
+    }
+    .ttt-cell.x { color: #a78bfa; }
+    .ttt-cell.o { color: #34d399; }
+    .status {
+      text-align: center;
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      min-height: 1.6em;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+    <a href="../index.html" class="back-link">← Back to GameHub</a>
+    <h1>❌⭕ Tic-Tac-Toe</h1>
+    <p class="game-info">Play against a friend (2 players on same device)</p>
+
+    <div class="status" id="status">Player X's turn</div>
+
+    <div class="board-wrap">
+      <div class="ttt-board" id="board"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="restart">Restart Game</button>
+    </div>
+
+    **Summary:**
+❓ How to play
+      <div class="how-to-body">
+        <ul>
+          <li>Two players take turns on the same device</li>
+          <li>Player <strong>X</strong> goes first, then <strong>O</strong></li>
+          <li>Get three in a row (horizontal, vertical, or diagonal) to win</li>
+          <li>If the board fills with no winner, it's a draw</li>
+        </ul>
+      </div>
+  </div>
+
+  <script>
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const restartBtn = document.getElementById('restart');
+
+    let board = Array(9).fill(null);
+    let current = 'X';
+    let gameOver = false;
+
+    const wins = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6]
+    ];
+
+    function render() {
+      boardEl.innerHTML = '';
+      board.forEach((val, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'ttt-cell' + (val ? ' ' + val.toLowerCase() : '');
+        btn.textContent = val || '';
+        btn.disabled = !!val || gameOver;
+        btn.addEventListener('click', () => move(i));
+        boardEl.appendChild(btn);
+      });
+    }
+
+    function move(i) {
+      if (board[i] || gameOver) return;
+      board[i] = current;
+      if (checkWin(current)) {
+        statusEl.textContent = `Player ${current} wins! 🎉`;
+        gameOver = true;
+      } else if (board.every(c => c)) {
+        statusEl.textContent = "It's a draw!";
+        gameOver = true;
+      } else {
+        current = current === 'X' ? 'O' : 'X';
+        statusEl.textContent = `Player ${current}'s turn`;
+      }
+      render();
+    }
+
+    function checkWin(p) {
+      return wins.some(([a,b,c]) => board[a] === p && board[b] === p && board[c] === p);
+    }
+
+    restartBtn.addEventListener('click', () => {
+      board = Array(9).fill(null);
+      current = 'X';
+      gameOver = false;
+      statusEl.textContent = "Player X's turn";
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
