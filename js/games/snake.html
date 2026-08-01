@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snake – GameHub</title>
+  <meta name="description" content="Play the classic Snake game online free. Eat food, grow longer, avoid walls!" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐍</text></svg>" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    canvas {
+      background: #12121f;
+      border: 3px solid #2a2a45;
+      border-radius: 12px;
+      display: block;
+      max-width: 100%;
+    }
+    .mobile-controls {
+      display: none;
+      grid-template-columns: repeat(3, 58px);
+      grid-template-rows: repeat(2, 48px);
+      gap: 6px;
+      justify-content: center;
+      margin-top: 1.2rem;
+    }
+    .mobile-controls button {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: white;
+      border-radius: 10px;
+      font-size: 1.25rem;
+      cursor: pointer;
+    }
+    .mobile-controls button:active { background: var(--accent); }
+    .up { grid-column: 2; }
+    .left { grid-column: 1; grid-row: 2; }
+    .down { grid-column: 2; grid-row: 2; }
+    .right { grid-column: 3; grid-row: 2; }
+    @media (max-width: 600px) {
+      .mobile-controls { display: grid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+    <a href="../index.html" class="back-link">← Back to GameHub</a>
+    <h1>🐍 Snake</h1>
+    <p class="game-info">Arrow keys / WASD · or on-screen buttons</p>
+
+    <div class="score-bar">
+      <div class="score-item">Score: <span id="score">0</span></div>
+      <div class="score-item">High: <span id="high">0</span></div>
+    </div>
+
+    <div class="board-wrap">
+      <canvas id="canvas" width="400" height="400"></canvas>
+    </div>
+
+    <div class="mobile-controls">
+      <button class="up" data-dir="up">▲</button>
+      <button class="left" data-dir="left">◀</button>
+      <button class="down" data-dir="down">▼</button>
+      <button class="right" data-dir="right">▶</button>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="startBtn">Start / Restart</button>
+      <button class="btn btn-secondary" id="pauseBtn">Pause</button>
+      <button class="btn btn-secondary" id="soundBtn">🔊 Sound</button>
+    </div>
+
+    **Summary:**
+❓ How to play
+      <div class="how-to-body">
+        <ul>
+          <li>Use <strong>Arrow keys</strong> or <strong>WASD</strong> to move</li>
+          <li>Eat the red food to grow and score points</li>
+          <li>Don't hit the walls or your own body</li>
+          <li>On mobile, use the on-screen arrow buttons</li>
+        </ul>
+      </div>
+  </div>
+
+  <script src="../js/sounds.js"></script>
+  <script src="../js/leaderboard.js"></script>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const highEl = document.getElementById('high');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const soundBtn = document.getElementById('soundBtn');
+    soundBtn.textContent = GameSounds.isEnabled() ? '🔊 Sound' : '🔇 Muted';
+    soundBtn.addEventListener('click', () => {
+      soundBtn.textContent = GameSounds.toggle() ? '🔊 Sound' : '🔇 Muted';
+    });
+
+    const grid = 20;
+    const size = canvas.width / grid;
+
+    let snake, food, dx, dy, score, high, running, paused, loopId;
+
+    high = Number(localStorage.getItem('snakeHigh') || 0);
+    highEl.textContent = high;
+
+    function init() {
+      snake = [{x: 10, y: 10}];
+      food = randomFood();
+      dx = 1; dy = 0;
+      score = 0;
+      scoreEl.textContent = 0;
+      running = true;
+      paused = false;
+      pauseBtn.textContent = 'Pause';
+      if (loopId) clearInterval(loopId);
+      loopId = setInterval(tick, 105);
+      draw();
+    }
+
+    function randomFood() {
+      let pos;
+      do {
+        pos = { x: Math.floor(Math.random() * grid), y: Math.floor(Math.random() * grid) };
+      } while (snake.some(s => s.x === pos.x && s.y === pos.y));
+      return pos;
+    }
+
+    function tick() {
+      if (!running || paused) return;
+      const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+      if (head.x < 0 || head.x >= grid || head.y < 0 || head.y >= grid ||
+          snake.some(s => s.x === head.x && s.y === head.y)) {
+        running = false;
+        GameSounds.fail();
+        if (score > high) {
+          high = score;
+          localStorage.setItem('snakeHigh', high);
+          highEl.textContent = high;
+        }
+        Leaderboard.submit('snake', score, true);
+        draw();
+        return;
+      }
+
+      snake.unshift(head);
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+        scoreEl.textContent = score;
+        food = randomFood();
+        GameSounds.eat();
+      } else {
+        snake.pop();
+      }
+      draw();
+    }
+
+    function draw() {
+      ctx.fillStyle = '#12121f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = 'rgba(42,42,69,0.5)';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= grid; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * size, 0);
+        ctx.lineTo(i * size, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * size);
+        ctx.lineTo(canvas.width, i * size);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.roundRect(food.x * size + 2, food.y * size + 2, size - 4, size - 4, 4);
+      ctx.fill();
+
+      snake.forEach((s, i) => {
+        ctx.fillStyle = i === 0 ? '#c4b5fd' : '#8b5cf6';
+        ctx.beginPath();
+        ctx.roundRect(s.x * size + 1, s.y * size + 1, size - 2, size - 2, 4);
+        ctx.fill();
+      });
+
+      if (!running) {
+        ctx.fillStyle = 'rgba(11,11,20,0.75)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 28px Poppins, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 12);
+        ctx.font = '15px Poppins, sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('Score: ' + score + '  ·  Press Start to retry', canvas.width / 2, canvas.height / 2 + 22);
+      } else if (paused) {
+        ctx.fillStyle = 'rgba(11,11,20,0.6)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 26px Poppins, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Paused', canvas.width / 2, canvas.height / 2);
+      }
+    }
+
+    function setDir(nx, ny) {
+      if (dx === -nx && dy === -ny) return;
+      dx = nx; dy = ny;
+    }
+
+    document.addEventListener('keydown', e => {
+      if (['ArrowUp','w','W'].includes(e.key)) { e.preventDefault(); setDir(0, -1); }
+      if (['ArrowDown','s','S'].includes(e.key)) { e.preventDefault(); setDir(0, 1); }
+      if (['ArrowLeft','a','A'].includes(e.key)) { e.preventDefault(); setDir(-1, 0); }
+      if (['ArrowRight','d','D'].includes(e.key)) { e.preventDefault(); setDir(1, 0); }
+      if (e.key === ' ' || e.key === 'p') { e.preventDefault(); togglePause(); }
+    });
+
+    document.querySelectorAll('.mobile-controls button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const d = btn.dataset.dir;
+        if (d === 'up') setDir(0, -1);
+        if (d === 'down') setDir(0, 1);
+        if (d === 'left') setDir(-1, 0);
+        if (d === 'right') setDir(1, 0);
+      });
+    });
+
+    function togglePause() {
+      if (!running) return;
+      paused = !paused;
+      pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+      draw();
+    }
+
+    startBtn.addEventListener('click', init);
+    pauseBtn.addEventListener('click', togglePause);
+    draw();
+  </script>
+</body>
+</html>
