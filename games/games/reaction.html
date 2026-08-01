@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reaction Test – GameHub</title>
+  <meta name="description" content="Test your reaction time online. Click when the screen turns green!" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    .reaction-box {
+      width: min(400px, 90vw);
+      height: 280px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 1.25rem;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+      border: 2px solid var(--border);
+      margin: 0 auto;
+      padding: 1.5rem;
+      line-height: 1.4;
+    }
+    .state-wait { background: #1e1b4b; }
+    .state-ready { background: #7f1d1d; }
+    .state-go { background: #14532d; }
+    .state-result { background: #1e1b4b; }
+    .result-ms {
+      font-size: 2.4rem;
+      color: var(--accent2);
+      display: block;
+      margin-bottom: 0.4rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+    <a href="../index.html" class="back-link">← Back to GameHub</a>
+    <h1>⚡ Reaction Test</h1>
+    <p class="game-info">Measure how fast your reflexes are</p>
+
+    <div class="score-bar">
+      <div class="score-item">Best: <span id="best">—</span></div>
+      <div class="score-item">Attempts: <span id="attempts">0</span></div>
+    </div>
+
+    <div class="reaction-box state-wait" id="box">
+      Click to start
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-secondary" id="resetBtn">Reset Stats</button>
+      <button class="btn btn-secondary" id="soundBtn">🔊 Sound</button>
+    </div>
+
+    **Summary:**
+❓ How to play
+      <div class="how-to-body">
+        <ul>
+          <li>Click the box to begin</li>
+          <li>Wait for the screen to turn <strong style="color:#4ade80">green</strong></li>
+          <li>Click as fast as you can when it turns green</li>
+          <li>Don't click too early or it counts as a fail</li>
+          <li>Average human reaction time is around 250ms</li>
+        </ul>
+      </div>
+  </div>
+
+  <script src="../js/sounds.js"></script>
+  <script src="../js/leaderboard.js"></script>
+  <script>
+    const box = document.getElementById('box');
+    const bestEl = document.getElementById('best');
+    const attemptsEl = document.getElementById('attempts');
+    const resetBtn = document.getElementById('resetBtn');
+    const soundBtn = document.getElementById('soundBtn');
+    soundBtn.textContent = GameSounds.isEnabled() ? '🔊 Sound' : '🔇 Muted';
+    soundBtn.addEventListener('click', () => {
+      soundBtn.textContent = GameSounds.toggle() ? '🔊 Sound' : '🔇 Muted';
+    });
+
+    let state = 'wait';
+    let startTime = 0;
+    let timeoutId = null;
+    let best = localStorage.getItem('reactionBest');
+    let attempts = Number(localStorage.getItem('reactionAttempts') || 0);
+
+    if (best) bestEl.textContent = best + ' ms';
+    attemptsEl.textContent = attempts;
+
+    function setState(s, html) {
+      state = s;
+      box.className = 'reaction-box state-' + s;
+      box.innerHTML = html;
+    }
+
+    function startReady() {
+      setState('ready', 'Wait for green...');
+      const delay = 1200 + Math.random() * 2800;
+      timeoutId = setTimeout(() => {
+        startTime = performance.now();
+        setState('go', 'CLICK!');
+      }, delay);
+    }
+
+    box.addEventListener('click', () => {
+      if (state === 'wait' || state === 'result') {
+        GameSounds.click();
+        startReady();
+      } else if (state === 'ready') {
+        clearTimeout(timeoutId);
+        GameSounds.fail();
+        setState('result', '<span class="result-ms">Too early!</span>Click to try again');
+      } else if (state === 'go') {
+        const ms = Math.round(performance.now() - startTime);
+        attempts++;
+        localStorage.setItem('reactionAttempts', attempts);
+        attemptsEl.textContent = attempts;
+        GameSounds.success();
+        Leaderboard.submit('reaction', ms, false);
+
+        if (!best || ms < Number(best)) {
+          best = ms;
+          localStorage.setItem('reactionBest', best);
+          bestEl.textContent = best + ' ms';
+        }
+
+        let msg = ms + ' ms';
+        if (ms < 150) msg += ' 🔥 Superhuman!';
+        else if (ms < 200) msg += ' ⚡ Excellent!';
+        else if (ms < 250) msg += ' 👍 Good';
+        else if (ms < 350) msg += ' Average';
+        else msg += ' Keep practicing';
+
+        setState('result', `<span class="result-ms">\( {ms} ms</span> \){msg}<br><small style="opacity:0.7">Click to try again</small>`);
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      localStorage.removeItem('reactionBest');
+      localStorage.removeItem('reactionAttempts');
+      best = null;
+      attempts = 0;
+      bestEl.textContent = '—';
+      attemptsEl.textContent = '0';
+      clearTimeout(timeoutId);
+      setState('wait', 'Click to start');
+    });
+  </script>
+</body>
+</html>
