@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hangman – GameHub</title>
+  <meta name="description" content="Play Hangman online free. Guess the word before it's too late!" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    .hang-canvas {
+      display: block;
+      margin: 0 auto 1rem;
+      background: #12121f;
+      border-radius: 12px;
+      border: 2px solid #2a2a45;
+    }
+    .word-display {
+      text-align: center;
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.35em;
+      margin: 1rem 0;
+      min-height: 2.2em;
+      font-family: monospace;
+    }
+    .keyboard {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+    .key {
+      width: 36px;
+      height: 40px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      border-radius: 8px;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .key:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
+    .key:disabled { opacity: 0.35; cursor: default; }
+    .key.correct { background: #14532d; border-color: #22c55e; opacity: 1; }
+    .key.wrong { background: #7f1d1d; border-color: #ef4444; opacity: 1; }
+    .status-msg {
+      text-align: center;
+      font-weight: 600;
+      margin: 0.75rem 0;
+      min-height: 1.5em;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+    <a href="../index.html" class="back-link">← Back to GameHub</a>
+    <h1>📝 Hangman</h1>
+    <p class="game-info">Guess the word one letter at a time</p>
+
+    <div class="score-bar">
+      <div class="score-item">Wins: <span id="wins">0</span></div>
+      <div class="score-item">Streak: <span id="streak">0</span></div>
+    </div>
+
+    <canvas class="hang-canvas" id="canvas" width="220" height="240"></canvas>
+    <div class="word-display" id="word"></div>
+    <div class="status-msg" id="status"></div>
+    <div class="keyboard" id="keys"></div>
+
+    <div class="controls">
+      <button class="btn" id="newBtn">New Word</button>
+      <button class="btn btn-secondary" id="soundBtn">🔊 Sound</button>
+    </div>
+
+    **Summary:**
+❓ How to play
+      <div class="how-to-body">
+        <ul>
+          <li>Click letters to guess the hidden word</li>
+          <li>Correct letters appear in the word</li>
+          <li>Wrong letters draw the hangman</li>
+          <li>6 wrong guesses = game over</li>
+        </ul>
+      </div>
+  </div>
+
+  <script src="../js/sounds.js"></script>
+  <script src="../js/leaderboard.js"></script>
+  <script>
+    const WORDS = [
+      'JAVASCRIPT','PYTHON','BROWSER','KEYBOARD','MONITOR','WEBSITE','HANGMAN',
+      'PUZZLE','GUESS','LETTER','COMPUTER','INTERNET','MOBILE','TABLET','CODING',
+      'ORANGE','BANANA','GUITAR','PLANET','ROCKET','CASTLE','DRAGON','PIRATE',
+      'FOREST','OCEAN','MOUNTAIN','THUNDER','RAINBOW','CRYSTAL','SHADOW'
+    ];
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const wordEl = document.getElementById('word');
+    const statusEl = document.getElementById('status');
+    const keysEl = document.getElementById('keys');
+    const winsEl = document.getElementById('wins');
+    const streakEl = document.getElementById('streak');
+    const newBtn = document.getElementById('newBtn');
+    const soundBtn = document.getElementById('soundBtn');
+
+    let word, guessed, wrong, gameOver;
+    let wins = Number(localStorage.getItem('hangmanWins') || 0);
+    let streak = Number(localStorage.getItem('hangmanStreak') || 0);
+    winsEl.textContent = wins;
+    streakEl.textContent = streak;
+    soundBtn.textContent = GameSounds.isEnabled() ? '🔊 Sound' : '🔇 Muted';
+
+    const parts = [
+      () => { ctx.beginPath(); ctx.arc(150, 70, 22, 0, Math.PI*2); ctx.stroke(); },
+      () => { ctx.beginPath(); ctx.moveTo(150, 92); ctx.lineTo(150, 150); ctx.stroke(); },
+      () => { ctx.beginPath(); ctx.moveTo(150, 110); ctx.lineTo(120, 135); ctx.stroke(); },
+      () => { ctx.beginPath(); ctx.moveTo(150, 110); ctx.lineTo(180, 135); ctx.stroke(); },
+      () => { ctx.beginPath(); ctx.moveTo(150, 150); ctx.lineTo(125, 190); ctx.stroke(); },
+      () => { ctx.beginPath(); ctx.moveTo(150, 150); ctx.lineTo(175, 190); ctx.stroke(); }
+    ];
+
+    function drawGallows() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(30, 220); ctx.lineTo(100, 220); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(60, 220); ctx.lineTo(60, 30); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(60, 30); ctx.lineTo(150, 30); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(150, 30); ctx.lineTo(150, 48); ctx.stroke();
+      ctx.strokeStyle = '#e2e8f0';
+      for (let i = 0; i < wrong; i++) parts[i]();
+    }
+
+    function init() {
+      word = WORDS[Math.floor(Math.random() * WORDS.length)];
+      guessed = new Set();
+      wrong = 0;
+      gameOver = false;
+      statusEl.textContent = '';
+      statusEl.style.color = '';
+      drawGallows();
+      renderWord();
+      renderKeys();
+    }
+
+    function renderWord() {
+      wordEl.textContent = word.split('').map(c => guessed.has(c) ? c : '_').join('');
+    }
+
+    function renderKeys() {
+      keysEl.innerHTML = '';
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(letter => {
+        const btn = document.createElement('button');
+        btn.className = 'key';
+        btn.textContent = letter;
+        if (guessed.has(letter)) {
+          btn.disabled = true;
+          btn.classList.add(word.includes(letter) ? 'correct' : 'wrong');
+        }
+        btn.addEventListener('click', () => guess(letter));
+        keysEl.appendChild(btn);
+      });
+    }
+
+    function guess(letter) {
+      if (gameOver || guessed.has(letter)) return;
+      guessed.add(letter);
+      GameSounds.click();
+
+      if (word.includes(letter)) {
+        GameSounds.eat();
+        renderWord();
+        if (word.split('').every(c => guessed.has(c))) {
+          gameOver = true;
+          statusEl.textContent = 'You win! 🎉';
+          statusEl.style.color = '#22c55e';
+          GameSounds.win();
+          wins++;
+          streak++;
+          localStorage.setItem('hangmanWins', wins);
+          localStorage.setItem('hangmanStreak', streak);
+          winsEl.textContent = wins;
+          streakEl.textContent = streak;
+          Leaderboard.submit('hangman', wins, true);
+        }
+      } else {
+        wrong++;
+        GameSounds.fail();
+        drawGallows();
+        if (wrong >= 6) {
+          gameOver = true;
+          statusEl.textContent = 'Game Over — word was ' + word;
+          statusEl.style.color = '#ef4444';
+          streak = 0;
+          localStorage.setItem('hangmanStreak', 0);
+          streakEl.textContent = 0;
+        }
+      }
+      renderKeys();
+    }
+
+    document.addEventListener('keydown', e => {
+      const k = e.key.toUpperCase();
+      if (/^[A-Z]$/.test(k)) guess(k);
+    });
+
+    newBtn.addEventListener('click', init);
+    soundBtn.addEventListener('click', () => {
+      const on = GameSounds.toggle();
+      soundBtn.textContent = on ? '🔊 Sound' : '🔇 Muted';
+    });
+
+    init();
+  </script>
+</body>
+</html>
