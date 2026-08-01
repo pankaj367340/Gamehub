@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard – GameHub</title>
+  <meta name="description" content="Your high scores on GameHub" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    .lb-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.25rem;
+      padding: 1.5rem 0 3rem;
+    }
+    .lb-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+    .lb-card h2 {
+      font-size: 1.1rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .lb-card ol {
+      list-style: none;
+      counter-reset: rank;
+    }
+    .lb-card li {
+      counter-increment: rank;
+      display: flex;
+      justify-content: space-between;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.92rem;
+    }
+    .lb-card li:last-child { border-bottom: none; }
+    .lb-card li::before {
+      content: "#" counter(rank);
+      color: var(--accent2);
+      font-weight: 600;
+      margin-right: 0.6rem;
+      min-width: 1.5rem;
+    }
+    .lb-empty {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0.5rem 0;
+    }
+    .lb-score { font-weight: 600; color: var(--text); }
+    .lb-date { color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <div class="game-page" style="max-width:900px">
+    <a href="index.html" class="back-link">← Back to GameHub</a>
+    <h1>🏆 Leaderboard</h1>
+    <p class="game-info">Your top scores saved on this device</p>
+
+    <div class="lb-grid" id="board"></div>
+
+    <div class="controls">
+      <button class="btn btn-secondary" id="clearBtn">Clear All Scores</button>
+    </div>
+  </div>
+
+  <script src="js/leaderboard.js"></script>
+  <script>
+    const games = [
+      { id: 'snake', name: '🐍 Snake', unit: 'pts', higher: true },
+      { id: '2048', name: '🔢 2048', unit: 'pts', higher: true },
+      { id: 'whack', name: '🔨 Whack-a-Mole', unit: 'pts', higher: true },
+      { id: 'memory', name: '🧠 Memory Match', unit: 'moves', higher: false },
+      { id: 'reaction', name: '⚡ Reaction Test', unit: 'ms', higher: false },
+      { id: 'breakout', name: '🧱 Breakout', unit: 'pts', higher: true },
+      { id: 'hangman', name: '📝 Hangman', unit: 'wins', higher: true }
+    ];
+
+    function render() {
+      const el = document.getElementById('board');
+      el.innerHTML = '';
+      games.forEach(g => {
+        const scores = Leaderboard.get(g.id);
+        const card = document.createElement('div');
+        card.className = 'lb-card';
+        let body = `<h2>${g.name}</h2>`;
+        if (!scores.length) {
+          body += `<p class="lb-empty">No scores yet — go play!</p>`;
+        } else {
+          body += '<ol>';
+          scores.forEach(s => {
+            body += `<li><span class="lb-score">${s.score} \( {g.unit}</span><span class="lb-date"> \){s.date}</span></li>`;
+          });
+          body += '</ol>';
+        }
+        card.innerHTML = body;
+        el.appendChild(card);
+      });
+    }
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      if (confirm('Clear all leaderboard scores?')) {
+        Leaderboard.clear();
+        render();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
