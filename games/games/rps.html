@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rock Paper Scissors – GameHub</title>
+  <meta name="description" content="Play Rock Paper Scissors online against the computer." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✊</text></svg>" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    .choices {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1.5rem 0;
+      flex-wrap: wrap;
+    }
+    .choice-btn {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      border: 3px solid #2d2d4a;
+      background: var(--card);
+      font-size: 2.2rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .choice-btn:hover {
+      border-color: var(--accent);
+      transform: scale(1.08);
+    }
+    .result-area {
+      text-align: center;
+      margin: 1.5rem 0;
+      min-height: 120px;
+    }
+    .result-area .vs {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+      font-size: 3rem;
+      margin-bottom: 0.8rem;
+    }
+    .result-text {
+      font-size: 1.3rem;
+      font-weight: 600;
+    }
+    .win { color: #22c55e; }
+    .lose { color: #ef4444; }
+    .draw { color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+    <a href="../index.html" class="back-link">← Back to GameHub</a>
+    <h1>✊✋✌️ Rock Paper Scissors</h1>
+    <p class="game-info">Choose your move</p>
+
+    <div class="score-bar">
+      <div class="score-item">You: <span id="you">0</span></div>
+      <div class="score-item">Computer: <span id="cpu">0</span></div>
+    </div>
+
+    <div class="choices">
+      <button class="choice-btn" data-choice="rock">✊</button>
+      <button class="choice-btn" data-choice="paper">✋</button>
+      <button class="choice-btn" data-choice="scissors">✌️</button>
+    </div>
+
+    <div class="result-area" id="result">
+      <p style="color:var(--muted)">Make your choice above</p>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-secondary" id="reset">Reset Score</button>
+    </div>
+
+    **Summary:**
+❓ How to play
+      <div class="how-to-body">
+        <ul>
+          <li>Click Rock, Paper, or Scissors</li>
+          <li>Rock beats Scissors · Scissors beats Paper · Paper beats Rock</li>
+          <li>Same choice = draw</li>
+          <li>Score is saved until you reset</li>
+        </ul>
+      </div>
+  </div>
+
+  <script>
+    const icons = { rock: '✊', paper: '✋', scissors: '✌️' };
+    const beats = { rock: 'scissors', paper: 'rock', scissors: 'paper' };
+
+    let youScore = 0, cpuScore = 0;
+
+    const youEl = document.getElementById('you');
+    const cpuEl = document.getElementById('cpu');
+    const resultEl = document.getElementById('result');
+
+    document.querySelectorAll('.choice-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const player = btn.dataset.choice;
+        const cpu = ['rock', 'paper', 'scissors'][Math.floor(Math.random() * 3)];
+        let outcome, cls;
+
+        if (player === cpu) {
+          outcome = "It's a draw!";
+          cls = 'draw';
+        } else if (beats[player] === cpu) {
+          outcome = 'You win!';
+          cls = 'win';
+          youScore++;
+        } else {
+          outcome = 'Computer wins!';
+          cls = 'lose';
+          cpuScore++;
+        }
+
+        youEl.textContent = youScore;
+        cpuEl.textContent = cpuScore;
+
+        resultEl.innerHTML = `
+          <div class="vs">
+            <span title="You">${icons[player]}</span>
+            <span style="font-size:1.2rem;color:var(--muted)">vs</span>
+            <span title="Computer">${icons[cpu]}</span>
+          </div>
+          <p class="result-text \( {cls}"> \){outcome}</p>
+        `;
+      });
+    });
+
+    document.getElementById('reset').addEventListener('click', () => {
+      youScore = 0;
+      cpuScore = 0;
+      youEl.textContent = 0;
+      cpuEl.textContent = 0;
+      resultEl.innerHTML = '<p style="color:var(--muted)">Make your choice above</p>';
+    });
+  </script>
+</body>
+</html>
