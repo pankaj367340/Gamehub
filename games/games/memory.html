@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memory Match – GameHub</title>
+  <meta name="description" content="Play Memory Match online free. Find all the matching pairs!" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    .memory-board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+    .card {
+      aspect-ratio: 1;
+      background: var(--card);
+      border: 2px solid #2d2d4a;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+      user-select: none;
+    }
+    .card:hover:not(.flipped):not(.matched) {
+      border-color: var(--accent);
+    }
+    .card.flipped, .card.matched {
+      background: #2e1065;
+      border-color: var(--accent);
+      transform: scale(1.02);
+    }
+    .card.matched {
+      opacity: 0.7;
+      cursor: default;
+    }
+    .card .front { display: none; }
+    .card.flipped .front, .card.matched .front { display: block; }
+    .card.flipped .back, .card.matched .back { display: none; }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+    <a href="../index.html" class="back-link">← Back to GameHub</a>
+    <h1>🧠 Memory Match</h1>
+    <p class="game-info">Find all matching pairs</p>
+
+    <div class="score-bar">
+      <div class="score-item">Moves: <span id="moves">0</span></div>
+      <div class="score-item">Pairs: <span id="pairs">0</span>/8</div>
+    </div>
+
+    <div class="memory-board" id="board"></div>
+
+    <div class="controls">
+      <button class="btn" id="restart">New Game</button>
+      <button class="btn btn-secondary" id="soundBtn">🔊 Sound</button>
+    </div>
+
+    **Summary:**
+❓ How to play
+      <div class="how-to-body">
+        <ul>
+          <li>Click a card to flip it over</li>
+          <li>Flip a second card — if they match, they stay open</li>
+          <li>If not, they flip back. Remember their positions!</li>
+          <li>Find all 8 pairs in as few moves as possible</li>
+        </ul>
+      </div>
+  </div>
+
+  <script src="../js/sounds.js"></script>
+  <script src="../js/leaderboard.js"></script>
+  <script>
+    const emojis = ['🍎','🍌','🍇','🍊','🍓','🍉','🍒','🥝'];
+    document.getElementById('soundBtn').textContent = GameSounds.isEnabled() ? '🔊 Sound' : '🔇 Muted';
+    document.getElementById('soundBtn').addEventListener('click', function() {
+      this.textContent = GameSounds.toggle() ? '🔊 Sound' : '🔇 Muted';
+    });
+    const boardEl = document.getElementById('board');
+    const movesEl = document.getElementById('moves');
+    const pairsEl = document.getElementById('pairs');
+    const restartBtn = document.getElementById('restart');
+
+    let cards = [];
+    let flipped = [];
+    let moves = 0;
+    let pairs = 0;
+    let lock = false;
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function init() {
+      cards = shuffle([...emojis, ...emojis]);
+      flipped = [];
+      moves = 0;
+      pairs = 0;
+      lock = false;
+      movesEl.textContent = 0;
+      pairsEl.textContent = 0;
+      render();
+    }
+
+    function render() {
+      boardEl.innerHTML = '';
+      cards.forEach((emoji, i) => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.dataset.index = i;
+        div.innerHTML = `<span class="front">${emoji}</span><span class="back">?</span>`;
+        div.addEventListener('click', () => flip(i, div));
+        boardEl.appendChild(div);
+      });
+    }
+
+    function flip(i, el) {
+      if (lock || el.classList.contains('flipped') || el.classList.contains('matched')) return;
+      el.classList.add('flipped');
+      GameSounds.click();
+      flipped.push({ i, el, emoji: cards[i] });
+
+      if (flipped.length === 2) {
+        moves++;
+        movesEl.textContent = moves;
+        lock = true;
+
+        if (flipped[0].emoji === flipped[1].emoji) {
+          flipped.forEach(f => f.el.classList.add('matched'));
+          pairs++;
+          pairsEl.textContent = pairs;
+          flipped = [];
+          lock = false;
+          GameSounds.eat();
+          if (pairs === 8) {
+            GameSounds.win();
+            Leaderboard.submit('memory', moves, false);
+            setTimeout(() => alert(`You won in ${moves} moves! 🎉`), 300);
+          }
+        } else {
+          GameSounds.fail();
+          setTimeout(() => {
+            flipped.forEach(f => f.el.classList.remove('flipped'));
+            flipped = [];
+            lock = false;
+          }, 700);
+        }
+      }
+    }
+
+    restartBtn.addEventListener('click', init);
+    init();
+  </script>
+</body>
+</html>
