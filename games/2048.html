@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2048 – GameHub</title>
+  <meta name="description" content="Play 2048 online free. Slide tiles and reach 2048!" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔢</text></svg>" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    .grid-2048 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      background: #1e1e36;
+      padding: 10px;
+      border-radius: 12px;
+      width: min(400px, 90vw);
+      margin: 0 auto;
+      border: 2px solid #2a2a45;
+    }
+    .cell-2048 {
+      aspect-ratio: 1;
+      background: #1a1a2e;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .t2 { background: #4c1d95; }
+    .t4 { background: #5b21b6; }
+    .t8 { background: #6d28d9; }
+    .t16 { background: #7c3aed; }
+    .t32 { background: #8b5cf6; }
+    .t64 { background: #a78bfa; color: #1a1a2e; }
+    .t128 { background: #c4b5fd; color: #1a1a2e; }
+    .t256 { background: #ddd6fe; color: #1a1a2e; }
+    .t512 { background: #22c55e; }
+    .t1024 { background: #16a34a; }
+    .t2048 { background: #fbbf24; color: #1a1a2e; }
+    .t4096 { background: #f59e0b; color: #1a1a2e; }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+    <a href="../index.html" class="back-link">← Back to GameHub</a>
+    <h1>🔢 2048</h1>
+    <p class="game-info">Use arrow keys or swipe to move tiles</p>
+
+    <div class="score-bar">
+      <div class="score-item">Score: <span id="score">0</span></div>
+      <div class="score-item">Best: <span id="best">0</span></div>
+    </div>
+
+    <div class="grid-2048" id="grid"></div>
+
+    <div class="controls">
+      <button class="btn" id="newGame">New Game</button>
+      <button class="btn btn-secondary" id="soundBtn">🔊 Sound</button>
+    </div>
+
+    **Summary:**
+❓ How to play
+      <div class="how-to-body">
+        <ul>
+          <li>Use <strong>Arrow keys</strong> or <strong>swipe</strong> to move all tiles</li>
+          <li>When two tiles with the same number touch, they merge into one</li>
+          <li>Goal: create a tile with the number <strong>2048</strong></li>
+          <li>Game ends when the board is full and no moves are left</li>
+        </ul>
+      </div>
+  </div>
+
+  <script src="../js/sounds.js"></script>
+  <script src="../js/leaderboard.js"></script>
+  <script>
+    const gridEl = document.getElementById('grid');
+    document.getElementById('soundBtn').textContent = GameSounds.isEnabled() ? '🔊 Sound' : '🔇 Muted';
+    document.getElementById('soundBtn').addEventListener('click', function() {
+      this.textContent = GameSounds.toggle() ? '🔊 Sound' : '🔇 Muted';
+    });
+    const scoreEl = document.getElementById('score');
+    const bestEl = document.getElementById('best');
+    const newGameBtn = document.getElementById('newGame');
+
+    let board, score, best;
+    best = Number(localStorage.getItem('2048Best') || 0);
+    bestEl.textContent = best;
+
+    function emptyBoard() {
+      return Array.from({ length: 4 }, () => Array(4).fill(0));
+    }
+
+    function addRandom() {
+      const empty = [];
+      for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 4; c++)
+          if (board[r][c] === 0) empty.push([r, c]);
+      if (!empty.length) return;
+      const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+      board[r][c] = Math.random() < 0.9 ? 2 : 4;
+    }
+
+    function render() {
+      gridEl.innerHTML = '';
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          const val = board[r][c];
+          const cell = document.createElement('div');
+          cell.className = 'cell-2048' + (val ? ' t' + val : '');
+          cell.textContent = val || '';
+          gridEl.appendChild(cell);
+        }
+      }
+      scoreEl.textContent = score;
+      if (score > best) {
+        best = score;
+        localStorage.setItem('2048Best', best);
+        bestEl.textContent = best;
+      }
+    }
+
+    function slide(row) {
+      let arr = row.filter(v => v);
+      let merged = false;
+      for (let i = 0; i < arr.length - 1; i++) {
+        if (arr[i] === arr[i + 1]) {
+          arr[i] *= 2;
+          score += arr[i];
+          arr[i + 1] = 0;
+          merged = true;
+        }
+      }
+      if (merged) GameSounds.eat();
+      arr = arr.filter(v => v);
+      while (arr.length < 4) arr.push(0);
+      return arr;
+    }
+
+    function move(dir) {
+      const prev = JSON.stringify(board);
+      if (dir === 'left') {
+        board = board.map(row => slide(row));
+      } else if (dir === 'right') {
+        board = board.map(row => slide(row.reverse()).reverse());
+      } else if (dir === 'up') {
+        for (let c = 0; c < 4; c++) {
+          let col = [board[0][c], board[1][c], board[2][c], board[3][c]];
+          col = slide(col);
+          for (let r = 0; r < 4; r++) board[r][c] = col[r];
+        }
+      } else if (dir === 'down') {
+        for (let c = 0; c < 4; c++) {
+          let col = [board[0][c], board[1][c], board[2][c], board[3][c]];
+          col = slide(col.reverse()).reverse();
+          for (let r = 0; r < 4; r++) board[r][c] = col[r];
+        }
+      }
+      if (JSON.stringify(board) !== prev) {
+        addRandom();
+        render();
+        if (isGameOver()) {
+          GameSounds.fail();
+          Leaderboard.submit('2048', score, true);
+          setTimeout(() => alert('Game Over! Score: ' + score), 200);
+        }
+      }
+    }
+
+    function isGameOver() {
+      for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 4; c++) {
+          if (board[r][c] === 0) return false;
+          if (c < 3 && board[r][c] === board[r][c + 1]) return false;
+          if (r < 3 && board[r][c] === board[r + 1][c]) return false;
+        }
+      return true;
+    }
+
+    function init() {
+      board = emptyBoard();
+      score = 0;
+      addRandom();
+      addRandom();
+      render();
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft') move('left');
+      if (e.key === 'ArrowRight') move('right');
+      if (e.key === 'ArrowUp') move('up');
+      if (e.key === 'ArrowDown') move('down');
+    });
+
+    let touchStartX, touchStartY;
+    document.addEventListener('touchstart', e => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', e => {
+      if (!touchStartX) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 30) move('right');
+        else if (dx < -30) move('left');
+      } else {
+        if (dy > 30) move('down');
+        else if (dy < -30) move('up');
+      }
+      touchStartX = null;
+    });
+
+    newGameBtn.addEventListener('click', init);
+    init();
+  </script>
+</body>
+</html>
